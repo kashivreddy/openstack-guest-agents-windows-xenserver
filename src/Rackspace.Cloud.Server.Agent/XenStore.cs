@@ -72,14 +72,9 @@ namespace Rackspace.Cloud.Server.Agent
         public string ReadVmProviderDataKey(string key)
         {
             var result = _executableProcess.Run(Constants.XenClientPath, "read " + Constants.Combine(Constants.ReadOnlyDataConfigBase, Constants.ProviderDataBase, key));
-            if (result.Output != null && result.Output.ToList().Count > 0)
-            {
+            if (result.ExitCode == "0" && result.Output != null && result.Output.Any())
                 return result.Output.First();
-            }
-            else
-            {
-                return string.Empty;
-            }
+            return string.Empty;
         }
 
         public void Write(string key, string value)
