@@ -15,7 +15,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using Rackspace.Cloud.Server.Agent.Configuration;
 using Rackspace.Cloud.Server.Agent.Interfaces;
 using Rackspace.Cloud.Server.Agent.Utilities;
@@ -25,6 +24,7 @@ using System.Linq;
 
 namespace Rackspace.Cloud.Server.Agent.Actions
 {
+
     public interface ISetNetworkInterface
     {
         void Execute(List<NetworkInterface> networkInterfaces);
@@ -32,6 +32,7 @@ namespace Rackspace.Cloud.Server.Agent.Actions
 
     public class SetNetworkInterface : ISetNetworkInterface
     {
+        public const int NO_OF_RETRIES_FOR_SETTING_INTERFACE_NAME = 10;
         private readonly IExecutableProcessQueue _executableProcessQueue;
         private readonly IWmiMacNetworkNameGetter _wmiMacNetworkNameGetter;
         private readonly ILogger _logger;
@@ -87,10 +88,27 @@ namespace Rackspace.Cloud.Server.Agent.Actions
                 SetupDns(interfaceName, networkInterface);
             }
 
-            if (interfaceName != networkInterface.label)
-                _executableProcessQueue.Enqueue("netsh", String.Format("interface set interface name=\"{0}\" newname=\"{1}\"", interfaceName, networkInterface.label));
-
             _executableProcessQueue.Go();
+
+            SetInterfaceName(networkInterface, interfaceName, 0);
+        }
+
+        private void SetInterfaceName(NetworkInterface networkInterface, string interfaceName, int count)
+        {
+            if (interfaceName != networkInterface.label)
+                _executableProcessQueue.Enqueue("netsh",
+                                                String.Format("interface set interface name=\"{0}\" newname=\"{1}\"",
+                                                              interfaceName, networkInterface.label + count));
+            try
+            {
+                _executableProcessQueue.Go();
+            }
+            catch (UnsuccessfulCommandExecutionException e)
+            {
+                _logger.Log(string.Format("Failed to setinterface name to {0} retrying", networkInterface.label + count));
+                if (count < NO_OF_RETRIES_FOR_SETTING_INTERFACE_NAME)
+                    SetInterfaceName(networkInterface, interfaceName, ++count);
+            }
         }
 
         private void SetupIpv6Interface(string interfaceName, NetworkInterface networkInterface)
@@ -168,7 +186,7 @@ namespace Rackspace.Cloud.Server.Agent.Actions
                                                           interfaceName), new[] { "0", "1" });
             foreach (var ipv6Address in _ipFinder.findIpv6Addresses(interfaceName))
             {
-                #region Windows 2012 Hack 
+                #region Windows 2012 Hack
                 // - Adding an ipv6 interface address and removing it, if not the delete ipv6 address fails with "The system cannot find the file specified."
                 var addAddresscommand = string.Format("interface ipv6 add address interface=\"{0}\" address=1::",
                                             interfaceName);

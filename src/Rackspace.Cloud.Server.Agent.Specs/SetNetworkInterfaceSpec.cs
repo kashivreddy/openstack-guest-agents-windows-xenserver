@@ -9,7 +9,6 @@ using Rackspace.Cloud.Server.Agent.Interfaces;
 using Rackspace.Cloud.Server.Agent.WMI;
 using Rackspace.Cloud.Server.Common.Logging;
 using Rhino.Mocks;
-using Rhino.Mocks.Constraints;
 
 namespace Rackspace.Cloud.Server.Agent.Specs {
     public class SetNetworkInterfaceSpecBase {
@@ -197,24 +196,25 @@ namespace Rackspace.Cloud.Server.Agent.Specs {
             ExecutableProcessQueue.Expect(x => x.Go()).Repeat.Twice();
 
             SetNetworkInterface = new SetNetworkInterface(ExecutableProcessQueue, WmiMacNetworkNameGetter, Logger, new IPFinder());
-            SetNetworkInterface.Execute(new List<NetworkInterface>{NetworkInterface});
         }
 
         [Test]
         public void should_call_enable_on_disabled_interfaces_whose_macs_are_absent() {
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
             ExecutableProcessQueue.AssertWasCalled(
                 x => x.Enqueue("netsh", "interface set interface name=\"Lan2\" admin=ENABLED"));
-//            ExecutableProcessQueue.AssertWasCalled(x => x.Go());
         }
 
         [Test]
         public void should_set_the_interface_for_dhcp_first_before_configuring_it() {
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
             ExecutableProcessQueue.AssertWasCalled(
                 x => x.Enqueue("netsh", "interface ip set address name=\"Lan1\" source=dhcp", new[] {"0", "1"}));
         }
 
         [Test]
         public void should_configure_the_interface_correctly_with_the_gateway() {
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
             ExecutableProcessQueue.AssertWasCalled(
                 x =>
                 x.Enqueue("netsh",
@@ -223,12 +223,14 @@ namespace Rackspace.Cloud.Server.Agent.Specs {
 
         [Test]
         public void should_configure_interface_with_the_dns_servers_as_dhcp() {
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
             ExecutableProcessQueue.AssertWasCalled(
                 x => x.Enqueue("netsh", "interface ip set dns name=\"Lan1\" source=dhcp", new[] {"0", "1"}));
         }
 
         [Test]
         public void should_configure_interface_with_all_the_present_dns_servers() {
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
             ExecutableProcessQueue.AssertWasCalled(
                 x => x.Enqueue("netsh", "interface ip add dns name=\"Lan1\" addr=192.168.1.3 index=1"));
             ExecutableProcessQueue.AssertWasCalled(
@@ -237,9 +239,40 @@ namespace Rackspace.Cloud.Server.Agent.Specs {
 
         [Test]
         public void should_set_interface_name() {
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
             ExecutableProcessQueue.AssertWasCalled(
-                x => x.Enqueue("netsh", "interface set interface name=\"Lan1\" newname=\"Front End\""));
+                x => x.Enqueue("netsh", "interface set interface name=\"Lan1\" newname=\"Front End0\""));
         }
+
+        [Test]
+        public void should_try_to_diff_name_if_set_interface_name_fails()
+        {
+            ExecutableProcessQueue.Expect(x => x.Go()).Throw(new UnsuccessfulCommandExecutionException("something", new ExecutableResult()));
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
+            ExecutableProcessQueue.AssertWasCalled(
+                x => x.Enqueue("netsh", "interface set interface name=\"Lan1\" newname=\"Front End1\""));
+        }
+
+        [Test]
+        public void should_try_set_to_diff_name_if_set_interface_name_fails_for_no_of_retry_attempts()
+        {
+            const int noOfRetries = SetNetworkInterface.NO_OF_RETRIES_FOR_SETTING_INTERFACE_NAME;
+            ExecutableProcessQueue.Expect(x => x.Go()).Throw(new UnsuccessfulCommandExecutionException("something", new ExecutableResult())).Repeat.Times(noOfRetries);
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
+            ExecutableProcessQueue.AssertWasCalled(
+                x => x.Enqueue("netsh", string.Format("interface set interface name=\"Lan1\" newname=\"Front End{0}\"", noOfRetries)));
+        }
+
+        [Test]
+        public void should_not_set_diff_name_if_set_interface_name_fails_for_more_than_retry_attempts()
+        {
+            const int noOfRetries = SetNetworkInterface.NO_OF_RETRIES_FOR_SETTING_INTERFACE_NAME;
+            ExecutableProcessQueue.Expect(x => x.Go()).Throw(new UnsuccessfulCommandExecutionException("something", new ExecutableResult())).Repeat.Times(noOfRetries+1);
+            SetNetworkInterface.Execute(new List<NetworkInterface> { NetworkInterface });
+            ExecutableProcessQueue.AssertWasNotCalled(
+                x => x.Enqueue("netsh", string.Format("interface set interface name=\"Lan1\" newname=\"Front End{0}\"", noOfRetries+1)));
+        }
+
 
         [TearDown]
         public void Teardown() {
