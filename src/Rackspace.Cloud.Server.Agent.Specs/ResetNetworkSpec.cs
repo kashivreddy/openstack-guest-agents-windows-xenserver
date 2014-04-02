@@ -58,7 +58,7 @@ namespace Rackspace.Cloud.Server.Agent.Specs {
             setNetworkInterface.AssertWasCalled(x => x.Execute(new List<NetworkInterface> { networkInterface }));
             setNetworkRoutes.AssertWasCalled(x => x.Execute(network));
             setProviderData.AssertWasCalled(x => x.Execute(providerData));
-            setHostname.AssertWasCalled(x => x.SetHostname(hostname));
+//            setHostname.AssertWasCalled(x => x.SetHostname(hostname));
         }
 
         [TearDown]

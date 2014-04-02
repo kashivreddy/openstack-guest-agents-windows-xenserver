@@ -57,8 +57,8 @@ namespace Rackspace.Cloud.Server.Agent.Commands
             var providerData = _xenProviderDataInformation.Get();
             _setProviderData.Execute(providerData);
 
-            var hostname = _xenStore.ReadVmData("hostname");
-            _setHostname.SetHostname(hostname);
+//            var hostname = _xenStore.ReadVmData("hostname");
+//            _setHostname.SetHostname(hostname);
 
             return new ExecutableResult();
         }
