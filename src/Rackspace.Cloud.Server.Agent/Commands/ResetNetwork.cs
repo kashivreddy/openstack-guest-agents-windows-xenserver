@@ -23,6 +23,7 @@ namespace Rackspace.Cloud.Server.Agent.Commands
     /// <summary>
     /// Do not change name unless the server team is changing the command name in xen store.
     /// </summary>
+    [PreAndPostCommand]
     public class ResetNetwork : IExecutableCommand
     {
         private readonly ISetNetworkInterface _setNetworkInterface;

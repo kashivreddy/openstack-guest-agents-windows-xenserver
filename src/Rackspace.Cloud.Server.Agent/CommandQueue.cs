@@ -18,6 +18,7 @@ using Rackspace.Cloud.Server.Agent.Configuration;
 using Rackspace.Cloud.Server.Agent.Interfaces;
 using Rackspace.Cloud.Server.Agent.Utilities;
 using Rackspace.Cloud.Server.Common.Logging;
+using System.Linq;
 
 namespace Rackspace.Cloud.Server.Agent {
     public interface ICommandQueue {
@@ -53,7 +54,14 @@ namespace Rackspace.Cloud.Server.Agent {
             var removeMessageFromXenStore = true;
 
             try {
-                var executableResult = _factory.CreateCommand(command.name).Execute(command.value);
+                var executableCommand = _factory.CreateCommand(command.name);
+                ExecutableResult executableResult;
+
+                if (hasPrePostCommandAttribute(executableCommand))
+                    executableResult = new PreAndPostCommandAttribute(_logger).Execute(executableCommand, command);
+                else
+                    executableResult = executableCommand.Execute(command.value);
+                
                 _store.Write(command.key, new Json<object>().Serialize(new { returncode = executableResult.ExitCode, message = executableResult.Output.Value() }));
             } catch (InvalidCommandException exception) {
                 _store.Write(command.key, new Json<object>().Serialize(new { returncode = "1", message = exception.Message }));
@@ -77,6 +85,11 @@ namespace Rackspace.Cloud.Server.Agent {
             } finally {
                 if (removeMessageFromXenStore) _store.Remove(command.key);
             }
+        }
+
+        private static bool hasPrePostCommandAttribute(IExecutableCommand command)
+        {
+            return command.GetType().GetCustomAttributes(typeof(PreAndPostCommandAttribute), true).Any();
         }
     }
 }

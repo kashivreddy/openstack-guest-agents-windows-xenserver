@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using System.Management;
 using Rackspace.Cloud.Server.Common.Logging;
 
@@ -32,11 +31,7 @@ namespace Rackspace.Cloud.Server.Agent.Actions
                 if (outParams == null)
                     return 1.ToString();
 
-                var renameResult = Convert.ToString(outParams.Properties["ReturnValue"].Value);
-                //Restart in 10 secs because we want finish current execution and write response back to Xenstore.
-//                if ("0".Equals(renameResult))
-//                    Process.Start(@"shutdown.exe", @"/r /t 10 /f /d p:2:4");
-                return renameResult;
+                return Convert.ToString(outParams.Properties["ReturnValue"].Value);
             }
         }
     }
